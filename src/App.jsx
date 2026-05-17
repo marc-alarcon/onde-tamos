@@ -1,15 +1,21 @@
+// src/App.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { Viewer } from 'mapillary-js';
 import { MapContainer, TileLayer, Marker, useMapEvents, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
+
+// Importamos los datos y las funciones matemáticas separadas
 import { LOCATIONS } from './locations';
+import { calcularDistancia, calcularPuntuacion } from './utils/helpers';
 
 // Token de Mapillary - ¡PON EL TUYO AQUÍ!
-const MAPILLARY_TOKEN = "MLY|26704725642530225|aab6832ebb6ee8c2b504116630899cec";
+const MAPILLARY_TOKEN = "TU_MAPILLARY_TOKEN_AQUÍ";
 
-// Arreglar el icono del marcador
+// --- CONFIGURACIÓN DE LOS PINES DEL MAPA ---
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// Pin azul por defecto (para el usuario)
 let DefaultIcon = L.icon({
     iconUrl: icon,
     shadowUrl: iconShadow,
@@ -18,30 +24,21 @@ let DefaultIcon = L.icon({
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
-// Función matemática de Haversine
-function calcularDistancia(lat1, lon1, lat2, lon2) {
-  const R = 6371; 
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  return R * c;
-}
+// Pin verde personalizado (para la ubicación real)
+const CorrectIcon = L.divIcon({
+  className: 'bg-transparent border-0',
+  html: `<div class="w-5 h-5 bg-green-500 border-2 border-white rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
+});
+// -------------------------------------------
 
-function calcularPuntuacion(distanciaKm) {
-  if (distanciaKm < 0.1) return 5000;
-  const puntos = Math.round(5000 * Math.exp(-distanciaKm / 100));
-  return Math.max(0, puntos);
-}
-
-// NUEVO: Componente para que el mapa haga zoom automático y muestre los dos pines
+// Componente para encuadrar los dos pines automáticamente en la pantalla de resultados
 function MapFitter({ guess, actual }) {
   const map = useMap();
   useEffect(() => {
     if (guess && actual) {
       const bounds = L.latLngBounds([guess, actual]);
-      // Añadimos un padding para que los pines no queden pegados al borde
       map.fitBounds(bounds, { padding: [50, 50] }); 
     }
   }, [map, guess, actual]);
@@ -62,7 +59,6 @@ export default function App() {
   // Iniciar visor de Mapillary
   useEffect(() => {
     if (gameState === 'jugando' && currentSpecification) {
-      // Un pequeño retraso para asegurar que el div del mapa existe antes de inyectar Mapillary
       setTimeout(() => {
         if (mlyViewerRef.current) {
           mlyViewerRef.current.remove();
@@ -77,6 +73,7 @@ export default function App() {
     }
   }, [gameState, round]);
 
+  // Capturar clics en el mapa
   function MapEvents() {
     useMapEvents({
       click(e) {
@@ -88,6 +85,7 @@ export default function App() {
     return null;
   }
 
+  // Lógica al pulsar "Votar"
   const handleGuess = () => {
     if (!userGuess) return;
     const dist = calcularDistancia(
@@ -102,6 +100,7 @@ export default function App() {
     setGameState('resultado');
   };
 
+  // Pasar a la siguiente ronda
   const handleNextRound = () => {
     setUserGuess(null);
     if (round < LOCATIONS.length - 1) {
@@ -112,6 +111,7 @@ export default function App() {
     }
   };
 
+  // Reiniciar partida
   const reiniciarJuego = () => {
     setRound(0);
     setTotalScore(0);
@@ -122,17 +122,18 @@ export default function App() {
   return (
     <div className="relative w-screen h-screen overflow-hidden font-sans bg-slate-900 text-white flex flex-col">
       
+      {/* PANTALLA DE INICIO */}
       {gameState === 'inicio' && (
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-900">
           <h1 className="text-5xl md:text-7xl font-black text-amber-400 mb-2">¿Onde tamô?</h1>
           <p className="text-xl mb-8">El juego de adivinar mapas con arte andaluz.</p>
-          <button onClick={() => setGameState('jugando')} className="px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xl rounded-xl cursor-pointer">
+          <button onClick={() => setGameState('jugando')} className="px-8 py-4 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xl rounded-xl cursor-pointer transition transform hover:scale-105">
             ¡Echá una partida!
           </button>
         </div>
       )}
 
-      {/* VISTA DE JUEGO NORMAL */}
+      {/* VISTA DE JUEGO (VISOR 360 + MINIMAPA) */}
       {gameState === 'jugando' && (
         <div className="w-full h-full relative">
           <div id="mly" className="w-full h-full bg-slate-800"></div>
@@ -157,46 +158,34 @@ export default function App() {
         </div>
       )}
 
-      {/* NUEVA VISTA DE RESULTADOS (ESTILO GEOGUESSR) */}
+      {/* VISTA DE RESULTADOS (MAPA GRANDE CON LÍNEA) */}
       {gameState === 'resultado' && (
         <div className="w-full h-full flex flex-col bg-slate-100 text-slate-900">
           
-          {/* MAPA GIGANTE ARRIBA */}
           <div className="flex-grow w-full relative z-0">
             <MapContainer center={[37.38, -5.98]} zoom={6} className="w-full h-full">
               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
               
-              {/* Marcador del jugador (Amarillo en la realidad, aquí usamos el por defecto) */}
+              {/* Marcador del jugador (Azul) */}
               <Marker position={userGuess} />
               
-              {/* Marcador Real (A donde tenías que haber pinchado) */}
-              <Marker position={[currentSpecification.lat, currentSpecification.lng]} />
+              {/* Marcador Real (Verde) */}
+              <Marker position={[currentSpecification.lat, currentSpecification.lng]} icon={CorrectIcon} />
               
-              {/* Línea que une ambos puntos */}
-              <Polyline 
-                positions={[userGuess, [currentSpecification.lat, currentSpecification.lng]]} 
-                color="#64748b" // color gris oscuro
-                weight={3} 
-                dashArray="5, 10" // línea punteada
-              />
+              {/* Línea conectora */}
+              <Polyline positions={[userGuess, [currentSpecification.lat, currentSpecification.lng]]} color="#64748b" weight={3} dashArray="5, 10" />
 
-              {/* El componente que hace que la cámara encuadre los dos puntos a la vez */}
               <MapFitter guess={userGuess} actual={[currentSpecification.lat, currentSpecification.lng]} />
             </MapContainer>
           </div>
 
-          {/* PANEL DE PUNTUACIÓN ABAJO */}
           <div className="h-48 md:h-64 flex flex-col items-center justify-center p-4 bg-white shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] z-10">
             <p className="text-lg md:text-2xl mb-2 text-center">
               Tu suposición estaba a <strong className="font-black text-slate-900">{distance.toFixed(1)} km</strong> de la ubicación correcta.
             </p>
             
-            {/* Barra de progreso de puntos visual (opcional, le da toque profesional) */}
             <div className="w-full max-w-2xl bg-slate-200 rounded-full h-4 mb-4 overflow-hidden relative">
-              <div 
-                className="bg-amber-500 h-4 rounded-full transition-all duration-1000 ease-out" 
-                style={{ width: `${(roundScore / 5000) * 100}%` }}
-              ></div>
+              <div className="bg-amber-500 h-4 rounded-full transition-all duration-1000 ease-out" style={{ width: `${(roundScore / 5000) * 100}%` }}></div>
             </div>
 
             <p className="text-xl mb-6">Has conseguido <strong className="text-amber-500 text-2xl">{roundScore}</strong> puntos</p>
@@ -213,7 +202,7 @@ export default function App() {
         <div className="absolute inset-0 z-50 flex flex-col items-center justify-center p-4 bg-slate-950">
           <h2 className="text-4xl font-black text-center mb-2 text-slate-100">Partida Terminada</h2>
           <p className="text-6xl font-black text-amber-400 my-4">{totalScore} <span className="text-2xl text-slate-400">/ 25000</span></p>
-          <button onClick={reiniciarJuego} className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl cursor-pointer">
+          <button onClick={reiniciarJuego} className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl cursor-pointer transition transform hover:scale-105">
             Jugar otra vez
           </button>
         </div>
