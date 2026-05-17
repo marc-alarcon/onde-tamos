@@ -5,7 +5,7 @@ import L from 'leaflet';
 import { LOCATIONS } from './locations';
 
 // Token de Mapillary - ¡PON EL TUYO AQUÍ!
-const MAPILLARY_TOKEN = "TU_MAPILLARY_TOKEN_AQUÍ";
+const MAPILLARY_TOKEN = "MLY|26704725642530225|aab6832ebb6ee8c2b504116630899cec";
 
 // Arreglar el icono del marcador
 import icon from 'leaflet/dist/images/marker-icon.png';
