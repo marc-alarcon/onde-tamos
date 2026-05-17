@@ -9,7 +9,7 @@ import { LOCATIONS } from './locations';
 import { calcularDistancia, calcularPuntuacion } from './utils/helpers';
 
 // Token de Mapillary - ¡PON EL TUYO AQUÍ!
-const MAPILLARY_TOKEN = "TU_MAPILLARY_TOKEN_AQUÍ";
+const MAPILLARY_TOKEN = import.meta.env.VITE_MAPILLARY_TOKEN;
 
 // --- CONFIGURACIÓN DE LOS PINES DEL MAPA ---
 import icon from 'leaflet/dist/images/marker-icon.png';
